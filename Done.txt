@@ -21,20 +21,21 @@ univalue 		 ---      USELESS
 wallet 			 ---      USELESS - related to the bitcoin wallets
 others 				+++       Hash.h, miner.cpp, main.cpp, pow.cpp
 
+_________________________________ miner.cpp is the primary file. ScanHash needs to be modified.
+
 
 ==============
 == JERASURE ==
 ==============
 
 *ENCODING
-		./encoder    INPUT_FILE    NUM_DATA_FILES    NUM_CODING_FILES    ALGORITHM    WORD_SIZE    PACKETSIZE    BUFFERSIZE
+		./encoder    INPUT_FILE
 
-		NUM_CODING_FILES refers to the number of files whose loss can be tolerated by the decoder.
-
-		./encoder Taken_3.mp4 40 50 cauchy_good 32 10240 500000
+		./encoder Taken_3.mp4
 
 *DECODING
 		./decoder    FILE_NAME_USED_WHILE_ENCODING
+
 
 ============
 == MERKLE ==
@@ -57,3 +58,30 @@ others 				+++       Hash.h, miner.cpp, main.cpp, pow.cpp
 		- returns (supposed) merkle root, reconstructed using the current hash and the 
 		  merkle proof.
 		- returned value can be compared with actual merkle root.
+
+
+=========
+== POW ==
+=========
+
+* bitcoin/src/miner.cpp
+-----------------------------------
+
+	*ScanHash
+		- Hashes nearly all the details of a CBlockHeader (including the MerkleRootHash, but NOT the nonce).
+		- Takes a nonce in a while loop, increments it, keeps adding it to the hash to see if any initial zero bits emerge.
+
+	*BitCoinMiner
+		- Does the mining.
+		- If ScanHash returns a hash with some initial zero bits, checks to see if it is less than "Z".
+		- "Z" is denoted by "arith_uint256().SetCompact(pblock->nBits)", where nBits represents the difficulty of the puzzle.
+		- If a successful solution is found, ProcessBlockFound is called.
+
+	*IncrementExtraNonce
+		- Apart from other things, it calls BuildMerkleTree().
+
+	*CreateNewBlockWithKey
+		- Calls CreateNewBlock().
+
+	*CreateNewBlock
+		- Creates a block from all the transactions.

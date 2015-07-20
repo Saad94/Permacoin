@@ -15,77 +15,33 @@
 #include <sstream>
 using namespace std;
 
-// static secp256k1_context_t* secp256k1_context = NULL;
-
-// bool CKey::Check(const unsigned char *vch) {
-//     return eccrypto::Check(vch);
-// }
-
-// void CKey::MakeNewKey(bool fCompressedIn) {
-//     RandAddSeedPerfmon();
-//     do {
-//         GetRandBytes(vch, sizeof(vch));
-//     } while (!Check(vch));
-//     fValid = true;
-//     fCompressed = fCompressedIn;
-// }
-
-// bool CKey::SetPrivKey(const CPrivKey &privkey, bool fCompressedIn) {
-//     if (!secp256k1_ec_privkey_import(secp256k1_context, (unsigned char*)begin(), &privkey[0], privkey.size()))
-//         return false;
-//     fCompressed = fCompressedIn;
-//     fValid = true;
-//     return true;
-// }
-
-// CPrivKey CKey::GetPrivKey() const {
-//     assert(fValid);
-//     CPrivKey privkey;
-//     int privkeylen, ret;
-//     privkey.resize(279);
-//     privkeylen = 279;
-//     ret = secp256k1_ec_privkey_export(secp256k1_context, begin(), (unsigned char*)&privkey[0], &privkeylen, fCompressed);
-//     assert(ret);
-//     privkey.resize(privkeylen);
-//     return privkey;
-// }
-
-// CPubKey CKey::GetPubKey() const {
-//     assert(fValid);
-//     CPubKey result;
-//     int clen = 65;
-//     int ret = secp256k1_ec_pubkey_create(secp256k1_context, (unsigned char*)result.begin(), &clen, begin(), fCompressed);
-//     assert((int)result.size() == clen);
-//     assert(ret);
-//     assert(result.IsValid());
-//     return result;
-// }
-
-
-
-
-
-
 // ==================================================================================
 
 /*
 * Server breaks file into n = rf segments.
-* For testing, r = 2, f = 293, size_of_segment = 2176 bytes
+* For testing, r = 2, f = 587, size_of_segment = 2048 bytes
 *
 * Server computes hash of every segment and publishes it. 
-* During initial download, Client chooses 'l' segments to store. Constructs merkle
-* tree from all 'n' segments, and stores Merkle proofs for each of its 'l' segments.
+* During initial download, Client chooses 'l' segments to store. Client
+* also downloads Merkle proofs for each segment.
 * 
 * A Merkle proof consists of a string of a concatenated series of 256bit hashes.
 * 
 * During mining, the Client generates nonce's denoted by 's'.
+* The nonce affects the first challenged index which is generated, and thus all
+* further challenged indexes.
+* It also directly affects the "ticket" which is generated in the end.
 * 
+* The ticket_hasher in this code outputs a hash which is equal to
+* PUZ || pk || s || (F[r[i]], sig[i], m_proof[r[i]])
 * 
-* 
-* 
-* 
-* 
-*  
+* For verification by other nodes, they will: 
+*	check that Ticket <= Z
+*	check that each File segment has a valid Merkle proof
+*	compute
+*		h[i]		= H(puz||pk||σ[i−1]||F[r[i]])
+*	verify that σ[i] is equal to the σ[i] that is contained in the ticket.
+*		σ[i] 		= sign_sk(h[i]))
 */
 
 class CKey {
@@ -122,6 +78,109 @@ uint256 CheckMerkleBranch(uint256 hash, const vector<uint256>& vMerkleBranch, in
         nIndex >>= 1;
     }
     return hash;
+}
+
+bool Verify(string Ticket) {
+	/*
+	* FORMAT
+	*	pk size
+	*	pk value
+	*	nonce
+	*	filesize
+	*	proofsize (p)
+	*	number of challenges (k)
+	*	challenged segment number
+	*	file[i] data
+	*	sig[i]
+	*	p merkle proofs
+	*/
+
+	// cout << "\nVERIFY\n\n " << Ticket << "\n";
+	stringstream ss(Ticket);
+
+	string s;
+	char temp[10];
+
+	// PK
+	getline(ss, s);
+	int pkLength = stoi(s); 
+	// cout << "pkLength = " << pkLength << "\n";
+
+	getline(ss, s);
+	string pkValue = s;
+	// cout << "pkValue = " << pkValue << "\n";
+	CPubKey v_pk(s.begin(), s.begin()+pkLength);
+	
+	// NONCE
+	getline(ss, s);
+	int v_nNonce = stoi(s);
+	// cout << "v_nNonce = " << v_nNonce << "\n";
+	
+	// FILESIZE
+	getline(ss, s);
+	int v_filesize = stoi(s);
+	// cout << "v_filesize = " << v_filesize << "\n";
+	
+	// PROOFSIZE
+	getline(ss, s);
+	int v_proofsize = stoi(s);
+	// cout << "v_proofsize = " << v_proofsize << "\n";
+	
+	// NUMBER OF CHALLENGES
+	getline(ss, s);
+	int v_k = stoi(s);
+	// cout << "v_k = " << v_k << "\n";
+	
+	for (int i = 0; i < 1; i++) {
+		// CHALLENGED SEGMENT NUMBER
+		getline(ss, s);
+		int v_r = stoi(s);
+		cout << "v_r = " << v_r << "\n";
+
+		// FILE DATA
+		unsigned char* v_data = (unsigned char*)malloc(sizeof(unsigned char)*v_filesize);
+		memset((void*)v_data, 0, v_filesize);
+
+		int pos = ss.tellg();
+		string tempStr = ss.str().substr(pos, v_filesize);
+		v_data = (unsigned char*)tempStr.c_str();
+		// cout << "v_data = " << tempStr << "\n\n\n\n";
+		
+		string tempStr2 = ss.str().substr(pos+v_filesize, ss.str().length()-pos-v_filesize);
+		ss.clear();
+		ss.str(tempStr2);
+		ss.ignore();
+
+		// SIGNATURE
+		char* v_sig = new char[73];
+		memset((void*)v_sig, 0, 73);
+		ss.read(v_sig, 72);
+		// cout << "v_sig = " << v_sig << "\n";
+		ss.ignore();
+
+		// MERKLE PROOF
+		vector<string> v_m_proof;
+		for (int j = 0; j < v_proofsize; j++) {
+			getline(ss, s);
+			v_m_proof.push_back(s);
+			cout << "v_m_proof[" << j << "] = " << s << "\n";
+		}
+
+
+		vector<uint256> proof;
+		for (int j = 0; j < v_m_proof.size(); j++) {
+			proof.push_back(uint256S(v_m_proof[i]));
+		}
+		
+		CHash256 merkleHasher;
+		uint256 merkleTestHash;
+		merkleHasher.Write(v_data, sizeof(v_data));
+		merkleHasher.Finalize((unsigned char*)&merkleTestHash);
+		uint256 supposedRootHash = CheckMerkleBranch(merkleTestHash, proof, v_r);
+		cout << "supposedRootHash = " << supposedRootHash.ToString() << "\n\n";
+	}
+	
+	return true;
 }
 
 // ==================================================================================
@@ -223,8 +282,8 @@ int main() {
     // base_hasher.Write((unsigned char*)&ss[0], 76);
 	base_hasher.Write(pk.begin(), pk.size());
 
-	for (nNonce; nNonce >= 0; nNonce++)
-	{
+	// for (nNonce; nNonce >= 0; nNonce++)
+	// {
 		CHash256 ticket_hasher;
 
 		// %%%%%%%%%%%%%%
@@ -246,12 +305,12 @@ int main() {
 		* base_hasher 	= H(puz||pk)  				since this is common
 		*/
 
-		for (int i = 0; i < k; i++) {
+		for (int i = 0; i < 1; i++) { ////////////////////////////
 			CHash256 hasher(base_hasher);
 			hasher.Write((unsigned char*)(&(sig[i])), sig[i].size());
 			sprintf(filepath, "%sPermacoin_%0*d.pdf", baseFilepath.c_str(), filenamePadding, r[i]);
 			
-			// cout << "r[" << i << "] = " << r[i] << "\n";
+			cout << "r[" << i << "] = " << r[i] << "\n";
 
 			fp = fopen(filepath, "rb");
 			if (fp == NULL) {
@@ -294,6 +353,7 @@ int main() {
 			vector<uint256> proof;
 			for (int j = 0; j < m_proof[r_u_index[i]].size(); j++) {
 				proof.push_back(uint256S(m_proof[r_u_index[i]][j]));
+				cout << "MPROOF[" << j << "] = " << m_proof[r_u_index[i]][j] << "\n";
 			}
 			
 			CHash256 merkleHasher;
@@ -304,41 +364,55 @@ int main() {
 			assert(supposedRootHash.ToString() == merkleRoot);
 		}
 
-		CDataStream ss1(1, 2);
-		
+		CDataStream ss1(SER_NETWORK, PROTOCOL_VERSION);
+		stringstream ticketStream;
+
+		/*
+		* FORMAT
+		*	pk size
+		*	pk value
+		*	nonce
+		*	filesize
+		*	proofsize (p)
+		*	number of challenges (k)
+		*	challenged segment number
+		*	file[i] data
+		*	sig[i]
+		*	p merkle proofs
+		*/
+
 		// PK
-		ss1 << '\n' << pk << '\n';
+		ss1 << pk;
+		ticketStream << pk.size() << "\n" << ss1.str() << "\n";
+		ss1.clear();
 
 		// NONCE
-		char temp[10];
-		sprintf(temp, "%d", nNonce);
-		for (int i = 0; i < strlen(temp); i++) {
-			ss1 << temp[i];
-		}
-		ss1 << '\n';
+		ticketStream << nNonce << "\n";
+		ticketStream << filesize << "\n";
+		ticketStream << m_proof[r_u_index[0]].size() << "\n";
+		ticketStream << k << "\n";
 
 		// FILE, SIGNATURE, PROOF
-		for (int i = 0; i < k; i++) {
-			ss1.write((char*)files[i], filesize);
-			ss1 << '\n' << sig[i+1];
-			ss1 << '\n';
-			for (int j = 0; j < m_proof[r_u_index[i+1]].size(); j++) {
-				for (char c : m_proof[r_u_index[i+1]][j]) {
-					ss1 << c;
-				}
-				ss1 << ',';
+		for (int i = 0; i < 1; i++) { //////////////////////////////////
+			ticketStream << u[r_u_index[i]] << "\n";
+			ticketStream.write((char*)files[i], filesize);
+			ticketStream << "\n";
+			ticketStream.write((char*)(&(sig[i+1][0])), 72);
+			ticketStream << "\n";
+			for (int j = 0; j < m_proof[r_u_index[i]].size(); j++) {
+				ticketStream << m_proof[r_u_index[i]][j] << "\n";
 			}
 		}
-		// cout << "STREAM = " << ss1.str() << "\n";
+		// cout << "TS     = \n" << ticketStream.str() << "\n\n";
 		// ticket_hasher.Write((unsigned char*)&ss[0], 76);
 		ticket_hasher.Write((unsigned char*)(ss1.str().c_str()), ss1.size());
 		ticket_hasher.Finalize((unsigned char*)&hash);
-		cout << "\nTICKET = " << hash.ToString();
+		// cout << "\nTICKET = " << hash.ToString();
 		
 		if (UintToArith256(hash) <= hashTarget) {
 			cout << "\n\nSUCCESS\n\n";
 			cout << ss1.str() << "\n";
-			break;
+			// break;
 		}
 
 		/*
@@ -348,7 +422,9 @@ int main() {
 		for (int i = 0; i < k; i++) {
 			delete files[i];
 		}
-	}
+	// }
+
+	Verify(ticketStream.str());
 
 	return 0;
 }
