@@ -1,0 +1,59 @@
+==========
+== DONE ==
+==========
+
+compat           ---      USELESS
+config           ---      USELESS
+consensus		 ---      USELESS - 3 Header files
+crypto            ?           Different Crypto Algorithms
+json             ---      USELESS - JSON
+leveldb 		 --- *    USELESS - Database
+obj 			 ---      USELESS
+obj-test 		 ---      USELESS
+policy 			 ---      USELESS - related to estimating the fees for processing
+primitives 			+++       Block and Transaction definitions
+qt				 --- *    USELESS - Application GUI
+script 			 ---      USELESS - related to scripts, used inside tx in/outputs
+secp256k1 		  ?  *        Elliptical Curve library for pk/pvk generation
+support 		 ---      USELESS
+test 			 ---      USELESS - Test Cases
+univalue 		 ---      USELESS
+wallet 			 ---      USELESS - related to the bitcoin wallets
+others 				+++       Hash.h, miner.cpp, main.cpp, pow.cpp
+
+
+==============
+== JERASURE ==
+==============
+
+*ENCODING
+		./encoder    INPUT_FILE    NUM_DATA_FILES    NUM_CODING_FILES    ALGORITHM    WORD_SIZE    PACKETSIZE    BUFFERSIZE
+
+		NUM_CODING_FILES refers to the number of files whose loss can be tolerated by the decoder.
+
+		./encoder Taken_3.mp4 40 50 cauchy_good 32 10240 500000
+
+*DECODING
+		./decoder    FILE_NAME_USED_WHILE_ENCODING
+
+============
+== MERKLE ==
+============
+
+* bitcoin/src/primitives/block.cpp
+-----------------------------------
+
+	*BuildMerkleTree
+		- transactions should be in vector vtx.
+		- returns merkle root.
+
+	*GetMerkleBranch
+		- input index of transaction
+		- returns merkle proof (pi) i.e vector of hashes using which merkle root can be 
+		  computed.
+
+	*CheckMerkleBranch
+		- input hash of indexed transaction, merkle proof, index of hashed transaction
+		- returns (supposed) merkle root, reconstructed using the current hash and the 
+		  merkle proof.
+		- returned value can be compared with actual merkle root.

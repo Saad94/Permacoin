@@ -4,7 +4,7 @@
 
 #include "hash.h"
 #include "crypto/common.h"
-#include "crypto/hmac_sha512.h"
+#include "crypto/hmac_sha512.cpp"
 #include "pubkey.h"
 
 
