@@ -67,7 +67,7 @@ ostream& operator<<(ostream& os, const vector<unsigned char>& v) {
 
 uint256 CheckMerkleBranch(uint256 hash, const vector<uint256>& vMerkleBranch, int nIndex)
 {
-    if (nIndex == -1)
+	if (nIndex == -1)
         return uint256();
     for (vector<uint256>::const_iterator it(vMerkleBranch.begin()); it != vMerkleBranch.end(); ++it)
     {
@@ -81,6 +81,12 @@ uint256 CheckMerkleBranch(uint256 hash, const vector<uint256>& vMerkleBranch, in
 }
 
 bool Verify(string Ticket) {
+	string baseFilepath	=  "/home/saad/Desktop/Jerasure-1.2/Examples/Coding/Permacoin.pdf_root_proof.txt";
+	string merkleRoot;
+	ifstream fs(baseFilepath.c_str());
+	getline(fs, merkleRoot);
+	fs.close();
+
 	/*
 	* FORMAT
 	*	pk size
@@ -131,11 +137,11 @@ bool Verify(string Ticket) {
 	int v_k = stoi(s);
 	// cout << "v_k = " << v_k << "\n";
 	
-	for (int i = 0; i < 1; i++) {
+	for (int i = 0; i < v_k; i++) {
 		// CHALLENGED SEGMENT NUMBER
 		getline(ss, s);
 		int v_r = stoi(s);
-		cout << "v_r = " << v_r << "\n";
+		// cout << "v_r = " << v_r << "\n";
 
 		// FILE DATA
 		unsigned char* v_data = (unsigned char*)malloc(sizeof(unsigned char)*v_filesize);
@@ -163,23 +169,25 @@ bool Verify(string Ticket) {
 		for (int j = 0; j < v_proofsize; j++) {
 			getline(ss, s);
 			v_m_proof.push_back(s);
-			cout << "v_m_proof[" << j << "] = " << s << "\n";
+			// cout << "v_m_proof[" << j << "] = " << s << "\n";
 		}
 
 
 		vector<uint256> proof;
 		for (int j = 0; j < v_m_proof.size(); j++) {
-			proof.push_back(uint256S(v_m_proof[i]));
+			proof.push_back(uint256S(v_m_proof[j]));
 		}
 		
 		CHash256 merkleHasher;
 		uint256 merkleTestHash;
-		merkleHasher.Write(v_data, sizeof(v_data));
+		merkleHasher.Write(v_data, v_filesize);
 		merkleHasher.Finalize((unsigned char*)&merkleTestHash);
 		uint256 supposedRootHash = CheckMerkleBranch(merkleTestHash, proof, v_r);
-		cout << "supposedRootHash = " << supposedRootHash.ToString() << "\n\n";
+		assert (merkleRoot == supposedRootHash.ToString());
 	}
 	
+	cout << "\n\nDATA SEGMENTS AND MERKLE PROOFS ARE VALID.\n\n";
+
 	return true;
 }
 
@@ -305,12 +313,12 @@ int main() {
 		* base_hasher 	= H(puz||pk)  				since this is common
 		*/
 
-		for (int i = 0; i < 1; i++) { ////////////////////////////
+		for (int i = 0; i < k; i++) {
 			CHash256 hasher(base_hasher);
 			hasher.Write((unsigned char*)(&(sig[i])), sig[i].size());
 			sprintf(filepath, "%sPermacoin_%0*d.pdf", baseFilepath.c_str(), filenamePadding, r[i]);
 			
-			cout << "r[" << i << "] = " << r[i] << "\n";
+			// cout << "r[" << i << "] = " << r[i] << "\n";
 
 			fp = fopen(filepath, "rb");
 			if (fp == NULL) {
@@ -353,12 +361,11 @@ int main() {
 			vector<uint256> proof;
 			for (int j = 0; j < m_proof[r_u_index[i]].size(); j++) {
 				proof.push_back(uint256S(m_proof[r_u_index[i]][j]));
-				cout << "MPROOF[" << j << "] = " << m_proof[r_u_index[i]][j] << "\n";
 			}
 			
 			CHash256 merkleHasher;
 			uint256 merkleTestHash;
-			merkleHasher.Write(buffer, sizeof(buffer));
+			merkleHasher.Write(buffer, filesize);
 			merkleHasher.Finalize((unsigned char*)&merkleTestHash);
 			uint256 supposedRootHash = CheckMerkleBranch(merkleTestHash, proof, r[i]);
 			assert(supposedRootHash.ToString() == merkleRoot);
@@ -393,7 +400,7 @@ int main() {
 		ticketStream << k << "\n";
 
 		// FILE, SIGNATURE, PROOF
-		for (int i = 0; i < 1; i++) { //////////////////////////////////
+		for (int i = 0; i < k; i++) {
 			ticketStream << u[r_u_index[i]] << "\n";
 			ticketStream.write((char*)files[i], filesize);
 			ticketStream << "\n";
