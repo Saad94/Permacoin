@@ -24,7 +24,254 @@
 #include <boost/thread.hpp>
 #include <boost/tuple/tuple.hpp>
 
+#include <string>
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <sys/stat.h>
+
 using namespace std;
+
+
+//////////////////////////////////////////////////////////////////////////////
+//
+// PERMACOIN
+//
+
+// ==================================================================================
+// ==================================================================================
+
+
+vector<uint256> BuildMerkleTree(vector<uint256> hashes)
+{
+    uint32_t index = 0;
+    vector<uint256> vMerkleTree(hashes.size());
+    for (; index < hashes.size(); index++){
+        vMerkleTree[index] = hashes[index];
+    }
+    
+    int j = 0;
+    
+    for (int nSize = hashes.size(); nSize > 1; nSize = (nSize + 1) / 2)
+    {
+        for (int i = 0; i < nSize; i += 2)
+        {
+            int i2 = std::min(i+1, nSize-1);
+            vMerkleTree.push_back(Hash(BEGIN(vMerkleTree[j+i]),  END(vMerkleTree[j+i]), BEGIN(vMerkleTree[j+i2]), END(vMerkleTree[j+i2])));
+        }
+        j += nSize;
+    }
+    
+    return vMerkleTree;
+}
+
+vector<uint256> GetMerkleBranch(int nIndex, vector<uint256> vMerkleTree, int leaves)
+{
+    vector<uint256> vMerkleBranch;
+    int j = 0;
+    for (int nSize = leaves; nSize > 1; nSize = (nSize + 1) / 2)
+    {
+        int i = min(nIndex^1, nSize-1);
+        vMerkleBranch.push_back(vMerkleTree[j+i]);
+        nIndex >>= 1;
+        j += nSize;
+    }
+    return vMerkleBranch;
+}
+
+uint256 CheckMerkleBranch(uint256 hash, const vector<uint256>& vMerkleBranch, int nIndex)
+{
+    if (nIndex == -1)
+        return uint256();
+    for (vector<uint256>::const_iterator it(vMerkleBranch.begin()); it != vMerkleBranch.end(); ++it)
+    {
+        if (nIndex & 1)
+            hash = Hash(BEGIN(*it), END(*it), BEGIN(hash), END(hash));
+        else
+            hash = Hash(BEGIN(hash), END(hash), BEGIN(*it), END(*it));
+        nIndex >>= 1;
+    }
+    return hash;
+}
+
+
+// ==================================================================================
+// ==================================================================================
+
+
+vector<uint120> BuildMerkleTree(vector<uint120> hashes)
+{
+    uint32_t index = 0;
+    vector<uint120> vMerkleTree(hashes.size());
+    for (; index < hashes.size(); index++){
+        vMerkleTree[index] = hashes[index];
+    }
+    
+    int j = 0;
+    
+    for (int nSize = hashes.size(); nSize > 1; nSize = (nSize + 1) / 2)
+    {
+        for (int i = 0; i < nSize; i += 2)
+        {
+            int i2 = std::min(i+1, nSize-1);
+            vMerkleTree.push_back(uint120(Hash(BEGIN(vMerkleTree[j+i]),  END(vMerkleTree[j+i]), BEGIN(vMerkleTree[j+i2]), END(vMerkleTree[j+i2]))));
+        }
+        j += nSize;
+    }
+    
+    return vMerkleTree;
+}
+
+vector<uint120> GetMerkleBranch(int nIndex, vector<uint120> vMerkleTree, int leaves)
+{
+    vector<uint120> vMerkleBranch;
+    int j = 0;
+    for (int nSize = leaves; nSize > 1; nSize = (nSize + 1) / 2)
+    {
+        int i = min(nIndex^1, nSize-1);
+        vMerkleBranch.push_back(vMerkleTree[j+i]);
+        nIndex >>= 1;
+        j += nSize;
+    }
+    return vMerkleBranch;
+}
+
+uint120 CheckMerkleBranch(uint120 hash, const vector<uint120>& vMerkleBranch, int nIndex)
+{
+    if (nIndex == -1)
+        return uint120();
+    for (vector<uint120>::const_iterator it(vMerkleBranch.begin()); it != vMerkleBranch.end(); ++it)
+    {
+        if (nIndex & 1)
+            hash = Hash(BEGIN(*it), END(*it), BEGIN(hash), END(hash));
+        else
+            hash = Hash(BEGIN(hash), END(hash), BEGIN(*it), END(*it));
+        nIndex >>= 1;
+    }
+    return hash;
+}
+
+
+// ==================================================================================
+// ==================================================================================
+
+
+bool Verify(string Ticket) {
+    string baseFilepath =  "/home/saad/Desktop/Jerasure-1.2/Examples/Coding/Permacoin.pdf_root_proof.txt";
+    string merkleRoot;
+    ifstream fs(baseFilepath.c_str());
+    getline(fs, merkleRoot);
+    fs.close();
+
+    /*
+    * FORMAT
+    *   pk size
+    *   pk value
+    *   nonce
+    *   filesize
+    *   proofsize (p)
+    *   number of challenges (k)
+    *   challenged segment number
+    *   file[i] data
+    *   sig[i]
+    *   p merkle proofs
+    */
+
+    // cout << "\nVERIFY\n\n " << Ticket << "\n";
+    stringstream ss(Ticket);
+
+    string s;
+
+    // PK
+    // getline(ss, s);
+    int pkLength;// = stoi(s); 
+    ss >> pkLength;
+    // cout << "pkLength = " << pkLength << "\n";
+
+    getline(ss, s);
+    string pkValue = s;
+    // cout << "pkValue = " << pkValue << "\n";
+    CPubKey v_pk(s.begin(), s.begin()+pkLength);
+    
+    // NONCE
+    // getline(ss, s);
+    int v_nNonce;// = stoi(s);
+    ss >> v_nNonce;
+    // cout << "v_nNonce = " << v_nNonce << "\n";
+    
+    // FILESIZE
+    // getline(ss, s);
+    int v_filesize;// = stoi(s);
+    ss >> v_filesize;
+    // cout << "v_filesize = " << v_filesize << "\n";
+    
+    // PROOFSIZE
+    // getline(ss, s);
+    int v_proofsize;// = stoi(s);
+    ss >> v_proofsize;
+    // cout << "v_proofsize = " << v_proofsize << "\n";
+    
+    // NUMBER OF CHALLENGES
+    // getline(ss, s);
+    int v_k;// = stoi(s);
+    ss >> v_k;
+    // cout << "v_k = " << v_k << "\n";
+    
+    for (int i = 0; i < v_k; i++) {
+        // CHALLENGED SEGMENT NUMBER
+        // getline(ss, s);
+        int v_r;// = stoi(s);
+        ss >> v_r;
+        // cout << "v_r = " << v_r << "\n";
+
+        // FILE DATA
+        unsigned char* v_data = (unsigned char*)malloc(sizeof(unsigned char)*v_filesize);
+        memset((void*)v_data, 0, v_filesize);
+
+        int pos = ss.tellg();
+        string tempStr = ss.str().substr(pos, v_filesize);
+        v_data = (unsigned char*)tempStr.c_str();
+        // cout << "v_data = " << tempStr << "\n\n\n\n";
+        
+        string tempStr2 = ss.str().substr(pos+v_filesize, ss.str().length()-pos-v_filesize);
+        ss.clear();
+        ss.str(tempStr2);
+        ss.ignore();
+
+        // SIGNATURE
+        char* v_sig = new char[73];
+        memset((void*)v_sig, 0, 73);
+        ss.read(v_sig, 72);
+        // cout << "v_sig = " << v_sig << "\n";
+        ss.ignore();
+
+        // MERKLE PROOF
+        vector<string> v_m_proof;
+        for (int j = 0; j < v_proofsize; j++) {
+            getline(ss, s);
+            v_m_proof.push_back(s);
+            // cout << "v_m_proof[" << j << "] = " << s << "\n";
+        }
+
+
+        vector<uint256> proof;
+        for (uint32_t j = 0; j < v_m_proof.size(); j++) {
+            proof.push_back(uint256S(v_m_proof[j]));
+        }
+        
+        CHash256 merkleHasher;
+        uint256 merkleTestHash;
+        merkleHasher.Write(v_data, v_filesize);
+        merkleHasher.Finalize((unsigned char*)&merkleTestHash);
+        uint256 supposedRootHash = CheckMerkleBranch(merkleTestHash, proof, v_r);
+        assert (merkleRoot == supposedRootHash.ToString());
+    }
+    
+    cout << "\n\nDATA SEGMENTS AND MERKLE PROOFS ARE VALID.\n\n";
+
+    return true;
+}
+
 
 //////////////////////////////////////////////////////////////////////////////
 //
@@ -376,29 +623,273 @@ void IncrementExtraNonce(CBlock* pblock, CBlockIndex* pindexPrev, unsigned int& 
 //
 bool static ScanHash(const CBlockHeader *pblock, uint32_t& nNonce, uint256 *phash)
 {
-    // Write the first 76 bytes of the block header to a double-SHA256 state.
-    CHash256 hasher;
+    CKey                    ck                   ;  // The client's CKey. Can be used to generate pk and sk. Used for signing.
+    CPubKey                 pk                   ;  // public key of client. Used for verifying.
+    int                     n               =1174;  // total no. of segments.
+    const uint32_t          l               =  20;  // no. of segments each client stores.
+    const uint32_t          k               =   5;  // no. of challenges.
+    int                     u[l]                 ;  // indices of segments which the client stores.
+    vector<string>          m_proof[l]           ;  // merkle proofs of segments which the client stores.
+    int                     r_u_index[k+1]       ;  // values by which 'u' will be indexed
+    int                     r[k+1]               ;  // indices of challenged segments.
+    uint256                 h[k]                 ;  // hashes used for signing and generating challenge indices.
+    vector<unsigned char>   sig[k+1]             ;  // array of signatures generated by calling ck.Sign
+    string                  merkleRoot           ;  // root hash of the merkle tree
+
+    FILE*                   fp                   ;  // pointer to the file segments that will be read in and hashed.
+    struct stat             status               ;  // finding file size
+    int                     filesize        =   0;  // size of the buffer
+    unsigned char*          buffer               ;  // to read the file into
+    vector<unsigned char*>  files(k)             ;
+    char*                   filenamePaddingBuf   ;
+    int                     filenamePadding      ;
+    char*                   filepath             ;
+    ifstream                fs                   ;
+
+    string                  baseFilepath    =  "/home/saad/Desktop/Jerasure-1.2/Examples/Coding/";
+
+
+    // ==================================================================================
+
+
+    CHash256 u_hasher, base_hasher;
+    uint256 hash, zerohash;
+    uint64_t hashvalue;
+    arith_uint256 hashTarget = arith_uint256().SetCompact(0x1f0fffff);
+    cout << "\nHASHTARGET = " << ArithToUint256(hashTarget).ToString() << "\n\n";
+        
+    /*
+    * baseFilepath will need to be configured somehow to point at the directory
+    * where each Client stores his share of the data.
+    */
+    filenamePaddingBuf = (char*) malloc(sizeof(char)*10);
+    filepath = (char*) malloc(sizeof(char)*30 + baseFilepath.length());
+    sprintf(filenamePaddingBuf, "%d", n);
+    filenamePadding = strlen(filenamePaddingBuf);
+
+    sprintf(filepath, "%sPermacoin.pdf_root_proof.txt", baseFilepath.c_str());
+    fs.open(filepath);
+    getline(fs, merkleRoot);
+    fs.close();
+    cout << "merkleRoot = " << merkleRoot << "\n\n";
+    
+    /* %%%%%%%%%%%%%
+    * The wallet's key should be used, not a new one. This is a dummy implementation
+    * anyways.
+    */
+    // ck.MakeNewKey(false);
+    // pk = ck.GetPubKey();
+    // %%%%%%%%%%%%%
+
+    // u_hasher.Write(pk.begin(), pk.size());
+        
+    for (uint32_t i = 0; i < l; i++) {
+        CHash256(u_hasher).Write((unsigned char*)&i, 4).Finalize((unsigned char*)&hash);
+        hashvalue = hash.GetHash(zerohash);
+        u[i] = hashvalue % n;
+
+        /*
+        * Loading the Merkle Proofs for the stored segments.
+        */
+
+        sprintf(filepath, "%sPermacoin_%0*d.pdf_proof.txt", baseFilepath.c_str(), filenamePadding, u[i]);
+        string s;
+        fs.open(filepath);
+        while (getline(fs, s)) {
+            m_proof[i].push_back(s);
+        }
+        fs.close();
+    }
+
+          
+        // for (uint32_t i = 0; i < l; i++) {
+            // cout << "u[" << i << "] = " << u[i] << "\n";
+            // cout << "proof:\n";
+            // for (int j = 0; j < m_proof[i].size(); j++) {
+            //     cout << "\t" << m_proof[i][j] << "\n";
+            // }
+            // cout << "\n";
+        // }
+        // cout << "\n";
+    
+
     CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
     ss << *pblock;
-    assert(ss.size() == 80);
-    hasher.Write((unsigned char*)&ss[0], 76);
+    // assert(ss.size() == 80);
+    // base_hasher.Write((unsigned char*)&ss[0], 76);
+    // base_hasher.Write(pk.begin(), pk.size());
 
-    while (true) {
+    while (1)
+    {
         nNonce++;
+        CHash256 ticket_hasher;
 
-        // Write the last 4 bytes of the block header (the nonce) to a copy of
-        // the double-SHA256 state, and compute the result.
-        CHash256(hasher).Write((unsigned char*)&nNonce, 4).Finalize((unsigned char*)phash);
+        // %%%%%%%%%%%%%%
+        for (uint32_t i = 0; i < k+1; i++) {
+            sig[i] = vector<unsigned char> (72,'0'+i);
+        }
+        // %%%%%%%%%%%%%% To be deleted. Dummy implementation of Sign.
 
-        // Return the nonce if the hash has at least some zero bits,
-        // caller will check if it has enough to reach the target
-        if (((uint16_t*)phash)[15] == 0)
-            return true;
+        // sig[0] = {0};    
 
-        // If nothing found after trying for a while, return -1
-        if ((nNonce & 0xfff) == 0)
-            return false;
+        CHash256(base_hasher).Write((unsigned char*)&nNonce, 4).Finalize((unsigned char*)&hash);
+        hashvalue = hash.GetHash(zerohash);
+        r_u_index[0] = hashvalue % l;
+        r[0] = u[r_u_index[0]];
+
+        /*
+        * 'u' contains the indices of the segments that the Client is storing.
+        * r[0]          = u[H(puz||pk||s) mod l]
+        * base_hasher   = H(puz||pk)                since this is common
+        */
+
+        for (uint32_t i = 0; i < k; i++) {
+            CHash256 hasher(base_hasher);
+            hasher.Write((unsigned char*)(&(sig[i])), sig[i].size());
+            sprintf(filepath, "%sPermacoin_%0*d.pdf", baseFilepath.c_str(), filenamePadding, r[i]);
+            
+            // cout << "r[" << i << "] = " << r[i] << "\n";
+
+            fp = fopen(filepath, "rb");
+            if (fp == NULL) {
+                printf("===========================\nERROR: UNABLE TO OPEN FILE.\n\n");
+                exit(0);
+            }
+            if (filesize == 0) {
+                stat(filepath, &status);
+                filesize = status.st_size;
+            }
+
+            buffer = (unsigned char*)malloc(sizeof(unsigned char)*filesize);
+            memset((void*)buffer, 0, filesize);
+            fread((void*)buffer, sizeof(char), filesize, fp);
+            fclose(fp);
+            files[i] = buffer;
+            hasher.Write(buffer, filesize);
+            hasher.Finalize((unsigned char*)&hash);
+            h[i] = hash;
+            // ck.Sign(h[i], sig[i+1]);
+
+            hasher = CHash256(base_hasher);
+            hasher.Write(&(sig[i+1][0]), sig[i+1].size());
+            hasher.Finalize((unsigned char*)&hash);
+            hashvalue = hash.GetHash(zerohash);
+            r_u_index[i+1] = hashvalue % l;
+            r[i+1] = u[r_u_index[i+1]];
+
+            /*
+            * h[i]      = H(puz||pk||σ[i−1]||F[r[i]])
+            * σ[i]      = sign_sk(h[i]))
+            * r[i+1]    = u[H(puz||pk||σ[i]) mod l]
+            */
+
+
+            /*
+            * Validate the challenged proofs.
+            */
+
+            vector<uint256> proof;
+            for (uint32_t j = 0; j < m_proof[r_u_index[i]].size(); j++) {
+                proof.push_back(uint256S(m_proof[r_u_index[i]][j]));
+            }
+            
+            CHash256 merkleHasher;
+            uint256 merkleTestHash;
+            merkleHasher.Write(buffer, filesize);
+            merkleHasher.Finalize((unsigned char*)&merkleTestHash);
+            uint256 supposedRootHash = CheckMerkleBranch(merkleTestHash, proof, r[i]);
+            assert(supposedRootHash.ToString() == merkleRoot);
+        }
+
+        CDataStream ss1(SER_NETWORK, PROTOCOL_VERSION);
+        stringstream ticketStream;
+
+        /*
+        * FORMAT
+        *   pk size
+        *   pk value
+        *   nonce
+        *   filesize
+        *   proofsize (p)
+        *   number of challenges (k)
+        *   challenged segment number
+        *   file[i] data
+        *   sig[i]
+        *   p merkle proofs
+        */
+
+        // PK
+        // ss1 << pk;
+        // ticketStream << pk.size() << "\n" << ss1.str() << "\n";
+        ss1.clear();
+
+        // NONCE
+        ticketStream << nNonce << "\n";
+        ticketStream << filesize << "\n";
+        ticketStream << m_proof[r_u_index[0]].size() << "\n";
+        ticketStream << k << "\n";
+
+        // FILE, SIGNATURE, PROOF
+        for (uint32_t i = 0; i < k; i++) {
+            ticketStream << u[r_u_index[i]] << "\n";
+            ticketStream.write((char*)files[i], filesize);
+            ticketStream << "\n";
+            ticketStream.write((char*)(&(sig[i+1][0])), 72);
+            ticketStream << "\n";
+            for (uint32_t j = 0; j < m_proof[r_u_index[i]].size(); j++) {
+                ticketStream << m_proof[r_u_index[i]][j] << "\n";
+            }
+        }
+        // cout << "TS     = \n" << ticketStream.str() << "\n\n";
+        // ticket_hasher.Write((unsigned char*)&ss[0], 76);
+        ticket_hasher.Write((unsigned char*)(ticketStream.str().c_str()), ticketStream.str().length());
+        ticket_hasher.Finalize((unsigned char*)phash);
+        cout << "\nTICKET = " << phash->ToString();
+        
+        if (UintToArith256(*phash) <= hashTarget) {
+            cout << "\n\nSUCCESS\n\n";
+            cout << ticketStream.str() << "\n";
+            break;
+        }
+
+        /*
+        * Clearing used memory.
+        */
+        
+        for (uint32_t i = 0; i < k; i++) {
+            delete files[i];
+        }
     }
+
+    // Verify(ticketStream.str());
+
+    return true;
+
+
+
+    // // Write the first 76 bytes of the block header to a double-SHA256 state.
+    // CHash256 hasher;
+    // CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
+    // ss << *pblock;
+    // assert(ss.size() == 80);
+    // hasher.Write((unsigned char*)&ss[0], 76);
+
+    // while (true) {
+    //     nNonce++;
+
+    //     // Write the last 4 bytes of the block header (the nonce) to a copy of
+    //     // the double-SHA256 state, and compute the result.
+    //     CHash256(hasher).Write((unsigned char*)&nNonce, 4).Finalize((unsigned char*)phash);
+
+    //     // Return the nonce if the hash has at least some zero bits,
+    //     // caller will check if it has enough to reach the target
+    //     if (((uint16_t*)phash)[15] == 0)
+    //         return true;
+
+    //     // If nothing found after trying for a while, return -1
+    //     if ((nNonce & 0xfff) == 0)
+    //         return false;
+    // }
 }
 
 CBlockTemplate* CreateNewBlockWithKey(CReserveKey& reservekey)
@@ -434,7 +925,7 @@ static bool ProcessBlockFound(CBlock* pblock, CWallet& wallet, CReserveKey& rese
 
     // Process this block the same as if we had received it from another node
     CValidationState state;
-    if (!ProcessNewBlock(state, NULL, pblock))
+    if (!ProcessNewBlock(state, NULL, pblock, true, NULL))
         return error("BitcoinMiner: ProcessNewBlock, block not accepted");
 
     return true;
@@ -577,5 +1068,56 @@ void GenerateBitcoins(bool fGenerate, CWallet* pwallet, int nThreads)
     for (int i = 0; i < nThreads; i++)
         minerThreads->create_thread(boost::bind(&BitcoinMiner, pwallet));
 }
+
+
+
+
+
+
+
+
+
+
+
+int main() {
+    CBlockHeader *pblock = new CBlockHeader();
+    uint32_t nNonce = 0; 
+    uint256 *phash = new uint256();
+
+    ScanHash(pblock, nNonce, phash);
+
+
+//     RandAddSeedPerfmon();
+//     cout << "\n\n";
+//     vector<uint120> sig_sec(100);
+//     for (int k = 0; k < 100; k++) {
+//         char* buf = new char[33];
+//         memset(buf, '0', 33);
+//         for (int i = 0; i < 4; i++) {
+//             uint64_t j = GetRand(1000000000);
+//             // unsigned int j = rand() % 1000000000;
+//             snprintf(buf+8*i, 9, "%0*x", 8, j);
+//         }
+
+//         uint120 u1;
+//         u1.SetHex((char*)buf);
+//         sig_sec[k] = u1;
+//     }
+
+//     vector<uint120> sig_vMerkleTree = BuildMerkleTree(sig_sec);
+//     uint120 rootHash = sig_vMerkleTree.back();
+//     cout << "RootHash = " << rootHash.ToString() << "\n";
+
+//     for (int i = 0; i < 100; i++) {
+//         vector<uint120> proof = GetMerkleBranch(i, sig_vMerkleTree, 100);
+//         uint120 supposedRootHash = CheckMerkleBranch(sig_vMerkleTree[i], proof, i);
+//         assert (rootHash.ToString() == supposedRootHash.ToString());
+//     }
+
+//     cout << "\nPROOFS ARE VALID\n";
+
+    return 0;
+}
+
 
 #endif // ENABLE_WALLET
