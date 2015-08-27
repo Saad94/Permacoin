@@ -156,6 +156,13 @@ uint120 CheckMerkleBranch(uint120 hash, const vector<uint120>& vMerkleBranch, in
 // ==================================================================================
 // ==================================================================================
 
+class Ticket {
+
+};
+
+// ==================================================================================
+// ==================================================================================
+
 
 bool Verify(string Ticket, arith_uint256 difficultyTarget) {
     string baseFilepath =  "/home/saad/Desktop/Jerasure-1.2/Examples/Coding/Permacoin.pdf_root_proof.txt";
@@ -712,7 +719,7 @@ bool static ScanHash(const CBlockHeader *pblock, uint32_t& nNonce, uint256 *phas
 
     sig_vMerkleTree = BuildMerkleTree(sig_keys);
     sig_rootHash = sig_vMerkleTree.back();
-    cout << "RootHash = " << sig_rootHash.ToString() << "\n";
+    // cout << "RootHash = " << sig_rootHash.ToString() << "\n";
 
     //
     // FPS SCHEME
@@ -722,8 +729,8 @@ bool static ScanHash(const CBlockHeader *pblock, uint32_t& nNonce, uint256 *phas
     CHash256 u_hasher, base_hasher;
     uint256 hash, zerohash;
     uint64_t hashvalue;
-    arith_uint256 hashTarget = arith_uint256().SetCompact(0x1f0fffff);
-    cout << "\nHASHTARGET = " << ArithToUint256(hashTarget).ToString() << "\n\n";
+    arith_uint256 hashTarget = arith_uint256().SetCompact(0x1e0fffff);
+    // cout << "\nHASHTARGET = " << ArithToUint256(hashTarget).ToString() << "\n\n";
         
     /*
     * baseFilepath will need to be configured somehow to point at the directory
@@ -738,7 +745,7 @@ bool static ScanHash(const CBlockHeader *pblock, uint32_t& nNonce, uint256 *phas
     fs.open(filepath);
     getline(fs, merkleRoot);
     fs.close();
-    cout << "merkleRoot = " << merkleRoot << "\n\n";
+    // cout << "merkleRoot = " << merkleRoot << "\n\n";
     
     /* %%%%%%%%%%%%%
     * The wallet's key should be used, not a new one. This is a dummy implementation
@@ -746,14 +753,18 @@ bool static ScanHash(const CBlockHeader *pblock, uint32_t& nNonce, uint256 *phas
     */
     // ck.MakeNewKey(false);
     // pk = ck.GetPubKey();
+    // u_hasher.Write(pk.begin(), pk.size());
     // %%%%%%%%%%%%%
 
-    // u_hasher.Write(pk.begin(), pk.size());
-        
     for (uint32_t i = 0; i < l; i++) {
         CHash256(u_hasher).Write((unsigned char*)&i, 4).Finalize((unsigned char*)&hash);
         hashvalue = hash.GetHash(zerohash);
         u[i] = hashvalue % n;
+
+        /*
+        * 'u' contains the indices of the segments that the Client is storing.
+        * u[i] = H(pk||i) mod n
+        */
 
         /*
         * Loading the Merkle Proofs for the stored segments.
@@ -972,12 +983,6 @@ bool static ScanHash(const CBlockHeader *pblock, uint32_t& nNonce, uint256 *phas
         ticket_hasher.Finalize((unsigned char*)phash);
         cout << "\nTICKET = " << phash->ToString();
         
-        if (UintToArith256(*phash) <= hashTarget) {
-            cout << "\n\nSUCCESS\n\n";
-            // cout << ticketStream.str() << "\n";
-            break;
-        }
-
         /*
         * Clearing used memory.
         */
@@ -985,9 +990,30 @@ bool static ScanHash(const CBlockHeader *pblock, uint32_t& nNonce, uint256 *phas
         for (uint32_t i = 0; i < k; i++) {
             delete files[i];
         }
+
+        /*
+        * Checking Ticket
+        */
+
+        // if (UintToArith256(*phash) <= hashTarget) {
+        //     cout << "\n\nSUCCESS\n\n";
+        //     // cout << ticketStream.str() << "\n";
+        //     break;
+        // }
+
+        // Return the nonce if the hash has at least some zero bits,
+        // caller will check if it has enough to reach the target
+        if (((uint16_t*)phash)[15] == 0) {
+            return true;
+        }
+
+        // If nothing found after trying for a while, return -1
+        if ((nNonce & 0xfff) == 0) {
+            return false;
+        }
     }
 
-    Verify(ticketStream.str(), hashTarget);
+    // Verify(ticketStream.str(), hashTarget);
 
     return true;
 
@@ -1209,9 +1235,24 @@ int main() {
     CBlockHeader *pblock = new CBlockHeader();
     uint32_t nNonce = 0; 
     uint256 *phash = new uint256();
+    arith_uint256 hashTarget = arith_uint256().SetCompact(0x1e0fffff);
 
-    ScanHash(pblock, nNonce, phash);
+    // ScanHash(pblock, nNonce, phash);
 
+    while (true) {
+        if (ScanHash(pblock, nNonce, phash))
+        {
+            cout << "\n\nHASH = " << phash->ToString() << "\n\n";
+            if (UintToArith256(*phash) <= hashTarget)
+            {
+                cout << "\n\nSUCCESS\n\n";
+                break;
+            }
+        } else {
+            cout << "\n\nFALSE\n\n";
+        }
+    }
+    
 
     // RandAddSeedPerfmon();
     // cout << "\n\n";
