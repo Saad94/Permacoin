@@ -262,10 +262,7 @@ public:
 
             int pos = ss.tellg();
             string tempStr = ss.str().substr(pos, filesize);
-            files[i] = (unsigned char*)tempStr.c_str();
-            if (i == 0) {
-                cout << "FILES[i] = " << "\n" << tempStr << "\n\n";
-            }
+            memcpy((void*) files[i], (void*)tempStr.c_str(), filesize);
             
             string tempStr2 = ss.str().substr(pos+filesize, ss.str().length()-pos-filesize);
             ss.clear();
@@ -345,7 +342,7 @@ public:
 
     bool verifyMerkleProofs(string merkleRoot) {
         for (uint32_t i = 0; i < num_challenges; i++) {
-            cout << "\ni = " << i << "\n";
+            // cout << "\ni = " << i << "\n";
             // SIGNATURES
             uint120 sig_supposedRootHash = CheckMerkleBranch(sig[i], sig_proof[i], sig_index[i]);
             if (!(sig_rootHash.ToString() == sig_supposedRootHash.ToString())) {
@@ -359,7 +356,6 @@ public:
             uint256 merkleTestHash;
             merkleHasher.Write(files[i], filesize);
             merkleHasher.Finalize((unsigned char*)&merkleTestHash);
-            cout << "file_hash = " << merkleTestHash.ToString() << "\n";
             uint256 supposedRootHash = CheckMerkleBranch(merkleTestHash, merkle_proof[i], challenged_seg_num[i]);
             if (!(merkleRoot == supposedRootHash.ToString())) {
                 cout << "\n\nERROR: INVALID FILE SEGMENT / SEGMENT MERKLE PROOF\n\n";
@@ -424,7 +420,7 @@ bool Verify(string input, arith_uint256 difficultyTarget) {
     Ticket ticket(input);
     // ticket.print();
     if (UintToArith256(ticket.hashTicket()) <= difficultyTarget) {
-    //     cout << "\n\nVALIDATED    -    TICKET IS LESS THAN TARGET.\n\n";
+        cout << "\n\nVALIDATED    -    TICKET IS LESS THAN TARGET.\n\n";
         return true;
     }
 
@@ -826,7 +822,6 @@ bool static ScanHash(const CBlockHeader *pblock, uint32_t& nNonce, uint256 *phas
         memset(buf, '0', 33);
         for (int j = 0; j < 4; j++) {
             uint64_t k = GetRand(1000000000);
-            // unsigned int j = rand() % 1000000000;
             snprintf(buf+8*j, 9, "%0*x", 8, k);
         }
 
@@ -834,6 +829,7 @@ bool static ScanHash(const CBlockHeader *pblock, uint32_t& nNonce, uint256 *phas
         u1.SetHex((char*)buf);
         sig_keys[i] = u1;
     }
+    cout << "\n\n";
 
     sig_vMerkleTree = BuildMerkleTree(sig_keys);
     sig_rootHash = sig_vMerkleTree.back();
@@ -847,7 +843,7 @@ bool static ScanHash(const CBlockHeader *pblock, uint32_t& nNonce, uint256 *phas
     CHash256 u_hasher, base_hasher;
     uint256 hash, zerohash;
     uint64_t hashvalue;
-    arith_uint256 hashTarget = arith_uint256().SetCompact(0x1e0fffff);
+    // arith_uint256 hashTarget = arith_uint256().SetCompact(0x1e0fffff);
     // cout << "\nHASHTARGET = " << ArithToUint256(hashTarget).ToString() << "\n\n";
         
     /*
@@ -897,17 +893,17 @@ bool static ScanHash(const CBlockHeader *pblock, uint32_t& nNonce, uint256 *phas
         fs.close();
     }
 
-    /* TESTING */
-        // for (uint32_t i = 0; i < l; i++) {
-        //     cout << "u[" << i << "] = " << u[i] << "\n";
-        //     cout << "proof:\n";
-        //     for (int j = 0; j < m_proof[i].size(); j++) {
-        //         cout << "\t" << m_proof[i][j] << "\n";
-        //     }
-        //     cout << "\n";
-        // }
-        // cout << "\n";
-    /* TESTING */
+        /* TESTING */
+            // for (uint32_t i = 0; i < l; i++) {
+            //     cout << "u[" << i << "] = " << u[i] << "\n";
+            //     cout << "proof:\n";
+            //     for (int j = 0; j < m_proof[i].size(); j++) {
+            //         cout << "\t" << m_proof[i][j] << "\n";
+            //     }
+            //     cout << "\n";
+            // }
+            // cout << "\n";
+        /* TESTING */
 
     CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
     ss << *pblock;
@@ -915,8 +911,8 @@ bool static ScanHash(const CBlockHeader *pblock, uint32_t& nNonce, uint256 *phas
     // base_hasher.Write((unsigned char*)&ss[0], 76);
     // base_hasher.Write(pk.begin(), pk.size());
 
-    // while (1)
-    // {
+    while (1)
+    {
         nNonce++;
         CHash256 ticket_hasher;
 
@@ -978,9 +974,9 @@ bool static ScanHash(const CBlockHeader *pblock, uint32_t& nNonce, uint256 *phas
             fread((void*)buffer, sizeof(char), filesize, fp);
             fclose(fp);
             files[i] = buffer;
-            if (i == 0) {
-                cout << "BUFFER = \n" << buffer << "\n\n\n\n";
-            }
+            // if (i == 0) {
+            //     cout << "BUFFER = \n" << buffer << "\n\n\n\n";
+            // }
             
             hasher.Write(buffer, filesize);
             hasher.Finalize((unsigned char*)&hash);
@@ -997,18 +993,18 @@ bool static ScanHash(const CBlockHeader *pblock, uint32_t& nNonce, uint256 *phas
 
             sig_chosen_proofs[i] = GetMerkleBranch(sig_chosen_indexes.back(), sig_vMerkleTree, sig_numKeys);
 
-            /* TESTING */
-                // uint120 supposedRootHash1 = CheckMerkleBranch(sig_vMerkleTree[sig_chosen_indexes.back()], sig_chosen_proofs[i], sig_chosen_indexes.back());
-                // assert (sig_rootHash.ToString() == supposedRootHash1.ToString());
+                /* TESTING */
+                    // uint120 supposedRootHash1 = CheckMerkleBranch(sig_vMerkleTree[sig_chosen_indexes.back()], sig_chosen_proofs[i], sig_chosen_indexes.back());
+                    // assert (sig_rootHash.ToString() == supposedRootHash1.ToString());
 
-                // cout << "INDEX = " << sig_chosen_indexes.back() << "\n";
-                // cout << "VALUE = " << sig_vMerkleTree[sig_chosen_indexes.back()].ToString() << "\n";
-                // cout << "PROOF = " << "\n";
-                // for (int x = 0; x < sig_chosen_proofs[i].size(); x++) {
-                //     cout << "        " << sig_chosen_proofs[i][x].ToString() << "\n";
-                // }
-                // cout << "\n\n";
-            /* TESTING */
+                    // cout << "INDEX = " << sig_chosen_indexes.back() << "\n";
+                    // cout << "VALUE = " << sig_vMerkleTree[sig_chosen_indexes.back()].ToString() << "\n";
+                    // cout << "PROOF = " << "\n";
+                    // for (int x = 0; x < sig_chosen_proofs[i].size(); x++) {
+                    //     cout << "        " << sig_chosen_proofs[i][x].ToString() << "\n";
+                    // }
+                    // cout << "\n\n";
+                /* TESTING */
 
             /* --- FPS SCHEME --- */  
 
@@ -1029,21 +1025,21 @@ bool static ScanHash(const CBlockHeader *pblock, uint32_t& nNonce, uint256 *phas
             */
 
 
-            /* TESTING */
-                vector<uint256> proof;
-                for (uint32_t j = 0; j < m_proof[r_u_index[i]].size(); j++) {
-                    proof.push_back(uint256S(m_proof[r_u_index[i]][j]));
-                    // cout << "proof[" << j << "] = << " << proof.back().ToString() << "\n";
-                }
-                // cout << "\n";
-                CHash256 merkleHasher;
-                uint256 merkleTestHash;
-                merkleHasher.Write(buffer, filesize);
-                merkleHasher.Finalize((unsigned char*)&merkleTestHash);
-                cout << "file_hash = " << merkleTestHash.ToString() << "\n";
-                uint256 supposedRootHash = CheckMerkleBranch(merkleTestHash, proof, r[i]);
-                assert(supposedRootHash.ToString() == merkleRoot);
-            /* TESTING */
+                /* TESTING */
+                    // vector<uint256> proof;
+                    // for (uint32_t j = 0; j < m_proof[r_u_index[i]].size(); j++) {
+                    //     proof.push_back(uint256S(m_proof[r_u_index[i]][j]));
+                    //     // cout << "proof[" << j << "] = << " << proof.back().ToString() << "\n";
+                    // }
+                    // // cout << "\n";
+                    // CHash256 merkleHasher;
+                    // uint256 merkleTestHash;
+                    // merkleHasher.Write(buffer, filesize);
+                    // merkleHasher.Finalize((unsigned char*)&merkleTestHash);
+                    // cout << "file_hash = " << merkleTestHash.ToString() << "\n";
+                    // uint256 supposedRootHash = CheckMerkleBranch(merkleTestHash, proof, r[i]);
+                    // assert(supposedRootHash.ToString() == merkleRoot);
+                /* TESTING */
         }
 
         CDataStream ss1(SER_NETWORK, PROTOCOL_VERSION);
@@ -1087,12 +1083,8 @@ bool static ScanHash(const CBlockHeader *pblock, uint32_t& nNonce, uint256 *phas
             ticketStream << "\n";
 
             ticketStream << sig_chosen_indexes[i] << "\n";
-            // ticketStream.write(sig_vMerkleTree[sig_chosen_indexes[i]].begin(), 15);
-            // ticketStream << "\n";
             ticketStream << sig_vMerkleTree[sig_chosen_indexes[i]].ToString() << "\n";
             for (uint32_t j = 0; j < sig_chosen_proofs[i].size(); j++) {
-                // ticketStream.write(sig_chosen_proofs[i][j].begin(), 15);
-                // ticketStream << "\n";
                 ticketStream << sig_chosen_proofs[i][j].ToString() << "\n";
             }
             
@@ -1110,19 +1102,13 @@ bool static ScanHash(const CBlockHeader *pblock, uint32_t& nNonce, uint256 *phas
         * Clearing used memory.
         */
         
+        // Files are loaded and deleted on each iteration which is inefficient.
+        // However, the paper states that each client should be storing around 4GB
+        // of files. If we load all the files into memory and keep them there, unless
+        // the client has more than 4GB of RAM, this will not work.
         for (uint32_t i = 0; i < k; i++) {
             delete files[i];
         }
-
-        /*
-        * Checking Ticket
-        */
-
-        // if (UintToArith256(*phash) <= hashTarget) {
-        //     cout << "\n\nSUCCESS\n\n";
-        //     // cout << ticketStream.str() << "\n";
-        //     break;
-        // }
 
         // Return the nonce if the hash has at least some zero bits,
         // caller will check if it has enough to reach the target
@@ -1134,37 +1120,36 @@ bool static ScanHash(const CBlockHeader *pblock, uint32_t& nNonce, uint256 *phas
         if ((nNonce & 0xfff) == 0) {
             return false;
         }
-    // }
-
-    Verify(ticketStream.str(), hashTarget);
+    }
 
     return true;
 
 
+    // ORIGINAL SCANHASH FUNCTION
 
-    // // Write the first 76 bytes of the block header to a double-SHA256 state.
-    // CHash256 hasher;
-    // CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
-    // ss << *pblock;
-    // assert(ss.size() == 80);
-    // hasher.Write((unsigned char*)&ss[0], 76);
+        // // Write the first 76 bytes of the block header to a double-SHA256 state.
+        // CHash256 hasher;
+        // CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
+        // ss << *pblock;
+        // assert(ss.size() == 80);
+        // hasher.Write((unsigned char*)&ss[0], 76);
 
-    // while (true) {
-    //     nNonce++;
+        // while (true) {
+        //     nNonce++;
 
-    //     // Write the last 4 bytes of the block header (the nonce) to a copy of
-    //     // the double-SHA256 state, and compute the result.
-    //     CHash256(hasher).Write((unsigned char*)&nNonce, 4).Finalize((unsigned char*)phash);
+        //     // Write the last 4 bytes of the block header (the nonce) to a copy of
+        //     // the double-SHA256 state, and compute the result.
+        //     CHash256(hasher).Write((unsigned char*)&nNonce, 4).Finalize((unsigned char*)phash);
 
-    //     // Return the nonce if the hash has at least some zero bits,
-    //     // caller will check if it has enough to reach the target
-    //     if (((uint16_t*)phash)[15] == 0)
-    //         return true;
+        //     // Return the nonce if the hash has at least some zero bits,
+        //     // caller will check if it has enough to reach the target
+        //     if (((uint16_t*)phash)[15] == 0)
+        //         return true;
 
-    //     // If nothing found after trying for a while, return -1
-    //     if ((nNonce & 0xfff) == 0)
-    //         return false;
-    // }
+        //     // If nothing found after trying for a while, return -1
+        //     if ((nNonce & 0xfff) == 0)
+        //         return false;
+        // }
 }
 
 CBlockTemplate* CreateNewBlockWithKey(CReserveKey& reservekey)
@@ -1360,21 +1345,21 @@ int main() {
     uint256 *phash = new uint256();
     arith_uint256 hashTarget = arith_uint256().SetCompact(0x1e0fffff);
 
-    ScanHash(pblock, nNonce, phash);
+    // ScanHash(pblock, nNonce, phash);
 
-    // while (true) {
-    //     if (ScanHash(pblock, nNonce, phash))
-    //     {
-    //         cout << "\n\nHASH = " << phash->ToString() << "\n\n";
-    //         if (UintToArith256(*phash) <= hashTarget)
-    //         {
-    //             cout << "\n\nSUCCESS\n\n";
-    //             break;
-    //         }
-    //     } else {
-    //         cout << "\n\nFALSE\n\n";
-    //     }
-    // }
+    while (true) {
+        if (ScanHash(pblock, nNonce, phash))
+        {
+            cout << "\n\nHASH = " << phash->ToString() << "\n\n";
+            if (UintToArith256(*phash) <= hashTarget)
+            {
+                cout << "\n\nSUCCESS\n\n";
+                break;
+            }
+        } else {
+            cout << "\n\nFALSE\n\n";
+        }
+    }
     
 
     // RandAddSeedPerfmon();
